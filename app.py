@@ -42,6 +42,43 @@ def read_file(f):
 def clean_text(text):
     return re.sub(r'[^\x00-\x7F]+', '', text).strip()
 
+def generate_pdf(report):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            rightMargin=20*mm, leftMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Title'], fontSize=20, spaceAfter=12)
+    h1_style    = ParagraphStyle('H1', parent=styles['Heading1'], fontSize=15, spaceAfter=8, spaceBefore=14)
+    h2_style    = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=12, spaceAfter=6, spaceBefore=10)
+    body_style  = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, spaceAfter=4, leading=14)
+    bullet_style= ParagraphStyle('Bullet', parent=styles['Normal'], fontSize=10, leftIndent=15, spaceAfter=3, leading=14)
+
+    story = [Paragraph("Business Insight Report", title_style), Spacer(1, 5*mm)]
+
+    for line in report.split("\n"):
+        line = clean_text(line.strip())
+        if not line:
+            story.append(Spacer(1, 3*mm))
+        elif line.startswith("## "):
+            story.append(Paragraph(line[3:], h1_style))
+        elif line.startswith("### "):
+            story.append(Paragraph(line[4:], h2_style))
+        elif line.startswith("- ") or line.startswith("* "):
+            story.append(Paragraph("• " + line[2:], bullet_style))
+        else:
+            story.append(Paragraph(line, body_style))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf
+
 if uploaded_files:
     if len(uploaded_files) > 1:
         selected_name = st.selectbox("Select file to analyse", [f.name for f in uploaded_files])
@@ -60,7 +97,6 @@ if uploaded_files:
     st.subheader("📋 Data Preview")
     st.dataframe(df.head(10), use_container_width=True)
 
-    # ── Charts ─────────────────────────────────────────────
     st.subheader("📈 Data Visualizations")
     numeric_cols = df.select_dtypes(include='number').columns.tolist()
     date_col = next((c for c in df.columns if 'date' in c.lower()), None)
@@ -70,24 +106,18 @@ if uploaded_files:
 
         with tab1:
             col_choice = st.selectbox("Select column", numeric_cols, key="bar")
-            group_col = st.selectbox("Group by",
-                [c for c in df.columns if df[c].nunique() < 20], key="bar_group")
-            chart_data = df.groupby(group_col)[col_choice].sum().reset_index()
-            st.bar_chart(chart_data.set_index(group_col))
+            group_col  = st.selectbox("Group by", [c for c in df.columns if df[c].nunique() < 20], key="bar_group")
+            st.bar_chart(df.groupby(group_col)[col_choice].sum().reset_index().set_index(group_col))
 
         with tab2:
             col_choice2 = st.selectbox("Select column", numeric_cols, key="line")
-            if date_col:
-                st.line_chart(df.set_index(date_col)[col_choice2])
-            else:
-                st.line_chart(df[col_choice2])
+            st.line_chart(df.set_index(date_col)[col_choice2] if date_col else df[col_choice2])
 
         with tab3:
             st.dataframe(df[numeric_cols].corr().round(2), use_container_width=True)
 
     st.divider()
 
-    # ── Generate ───────────────────────────────────────────
     if st.button("🚀 Generate Report", type="primary", use_container_width=True):
         with st.spinner("Analysing data and generating report..."):
             prompt = f"""You are an elite business intelligence analyst.
@@ -121,17 +151,10 @@ Statistics:
         st.markdown(report)
         st.divider()
 
-        # ── Markdown ───────────────────────────────────────
         if export_format == "Markdown (.md)":
-            st.download_button(
-                label="⬇️ Download as Markdown",
-                data=report,
-                file_name="business_report.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
+            st.download_button("⬇️ Download as Markdown", data=report,
+                file_name="business_report.md", mime="text/markdown", use_container_width=True)
 
-        # ── Word ───────────────────────────────────────────
         elif export_format == "Word (.docx)":
             try:
                 from docx import Document
@@ -152,53 +175,21 @@ Statistics:
                 buf = io.BytesIO()
                 doc.save(buf)
                 buf.seek(0)
-                st.download_button(
-                    label="⬇️ Download as Word",
-                    data=buf,
+                st.download_button("⬇️ Download as Word", data=buf,
                     file_name="business_report.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True
-                )
+                    use_container_width=True)
             except ImportError:
                 st.error("Run: pip install python-docx")
 
-        # ── PDF ────────────────────────────────────────────
         elif export_format == "PDF (.pdf)":
             try:
-                from fpdf import FPDF
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_auto_page_break(auto=True, margin=10)
-                pdf.set_margins(10, 10, 10)
-
-                for line in report.split("\n"):
-                    line = line.strip()
-                    if not line:
-                        pdf.ln(3)
-                        continue
-                    if line.startswith("## "):
-                        pdf.set_font("Helvetica", "B", 16)
-                        pdf.multi_cell(0, 10, clean_text(line[3:]))
-                    elif line.startswith("### "):
-                        pdf.set_font("Helvetica", "B", 13)
-                        pdf.multi_cell(0, 8, clean_text(line[4:]))
-                    elif line.startswith("- ") or line.startswith("* "):
-                        pdf.set_font("Helvetica", size=11)
-                        pdf.multi_cell(0, 7, "- " + clean_text(line[2:]))
-                    else:
-                        pdf.set_font("Helvetica", size=11)
-                        pdf.multi_cell(0, 7, clean_text(line))
-
-                buf = io.BytesIO(pdf.output())
-                st.download_button(
-                    label="⬇️ Download as PDF",
-                    data=buf,
-                    file_name="business_report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+                buf = generate_pdf(report)
+                st.download_button("⬇️ Download as PDF", data=buf,
+                    file_name="business_report.pdf", mime="application/pdf",
+                    use_container_width=True)
             except ImportError:
-                st.error("Run: pip install fpdf2")
+                st.error("Run: pip install reportlab")
 
 else:
     st.info("👆 Upload a CSV or Excel file to get started.")
