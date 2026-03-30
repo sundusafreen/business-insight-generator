@@ -167,38 +167,46 @@ Statistics:
                 st.error("Run: pip install python-docx")
 
         elif export_format == "PDF (.pdf)":
-            try:
-                from fpdf import FPDF
-                pdf = FPDF()
-                pdf.add_page()
+    try:
+        import re
+        from fpdf import FPDF
+
+        def clean(text):
+            # Remove emojis and non-latin characters
+            return re.sub(r'[^\x00-\x7F]+', '', text).strip()
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_margins(15, 15, 15)
+
+        for line in report.split("\n"):
+            line = line.strip()
+            if not line:
+                pdf.ln(3)
+                continue
+            if line.startswith("## "):
+                pdf.set_font("Helvetica", "B", 16)
+                pdf.multi_cell(0, 10, clean(line[3:]))
+            elif line.startswith("### "):
+                pdf.set_font("Helvetica", "B", 13)
+                pdf.multi_cell(0, 8, clean(line[4:]))
+            elif line.startswith("- ") or line.startswith("* "):
                 pdf.set_font("Helvetica", size=11)
-                pdf.set_margins(15, 15, 15)
-                for line in report.split("\n"):
-                    line = line.strip()
-                    if not line:
-                        pdf.ln(3)
-                        continue
-                    if line.startswith("## "):
-                        pdf.set_font("Helvetica", "B", 16)
-                        pdf.multi_cell(0, 10, line[3:])
-                        pdf.set_font("Helvetica", size=11)
-                    elif line.startswith("### "):
-                        pdf.set_font("Helvetica", "B", 13)
-                        pdf.multi_cell(0, 8, line[4:])
-                        pdf.set_font("Helvetica", size=11)
-                    else:
-                        clean = line.encode("latin-1", "replace").decode("latin-1")
-                        pdf.multi_cell(0, 7, clean)
-                buf = io.BytesIO(pdf.output())
-                st.download_button(
-                    label="⬇️ Download as PDF",
-                    data=buf,
-                    file_name="business_report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-            except ImportError:
-                st.error("Run: pip install fpdf2")
+                pdf.multi_cell(0, 7, "- " + clean(line[2:]))
+            else:
+                pdf.set_font("Helvetica", size=11)
+                pdf.multi_cell(0, 7, clean(line))
+
+        buf = io.BytesIO(pdf.output())
+        st.download_button(
+            label="⬇️ Download as PDF",
+            data=buf,
+            file_name="business_report.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except ImportError:
+        st.error("Run: pip install fpdf2")
 
 else:
     st.info("👆 Upload a CSV or Excel file to get started.")
