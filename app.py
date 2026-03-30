@@ -168,7 +168,8 @@ Statistics:
                 from fpdf import FPDF
                 pdf = FPDF()
                 pdf.add_page()
-                pdf.set_margins(15, 15, 15)
+                pdf.set_auto_page_break(auto=True, margin=10)
+                pdf.set_margins(10, 10, 10)
 
                 for line in report.split("\n"):
                     line = line.strip()
