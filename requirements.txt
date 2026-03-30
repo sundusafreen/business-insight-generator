@@ -3,5 +3,5 @@ pandas
 groq
 python-dotenv
 python-docx
-fpdf2
+reportlab
 openpyxl
