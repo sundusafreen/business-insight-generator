@@ -1,4 +1,5 @@
 import os
+import io
 import pandas as pd
 import streamlit as st
 from groq import Groq
@@ -9,7 +10,7 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 st.set_page_config(page_title="Business Insight Generator", page_icon="📊", layout="wide")
 st.title("📊 AI Business Insight Generator")
-st.markdown("Upload CSV files and generate instant AI-powered business reports.")
+st.markdown("Upload CSV or Excel files and generate instant AI-powered business reports.")
 
 # ── Sidebar ────────────────────────────────────────────────
 with st.sidebar:
@@ -20,15 +21,26 @@ with st.sidebar:
     ])
     custom_focus = st.text_input("Custom Focus (optional)",
         placeholder="e.g. Focus on regional gaps")
+
+    st.divider()
+
+    export_format = st.radio("Download Format", ["Markdown (.md)", "Word (.docx)", "PDF (.pdf)"])
+
     st.divider()
     st.caption("Powered by Groq + Llama 3.3")
 
 # ── File Upload ────────────────────────────────────────────
 uploaded_files = st.file_uploader(
-    "Upload one or more CSV files",
-    type=["csv"],
+    "Upload one or more CSV or Excel files",
+    type=["csv", "xlsx", "xls"],
     accept_multiple_files=True
 )
+
+def read_file(uploaded_file):
+    if uploaded_file.name.endswith(".csv"):
+        return pd.read_csv(uploaded_file)
+    else:
+        return pd.read_excel(uploaded_file)
 
 if uploaded_files:
     if len(uploaded_files) > 1:
@@ -40,7 +52,7 @@ if uploaded_files:
     else:
         uploaded_file = uploaded_files[0]
 
-    df = pd.read_csv(uploaded_file)
+    df = read_file(uploaded_file)
     st.success(f"✅ Loaded **{uploaded_file.name}** — {df.shape[0]} rows, {df.shape[1]} columns")
 
     # ── Metrics ────────────────────────────────────────────
@@ -84,6 +96,7 @@ if uploaded_files:
         with st.spinner("Analysing data and generating report..."):
             prompt = f"""You are an elite business intelligence analyst.
 Generate a {report_type} report using this exact structure:
+
 ## {report_type} Report
 ### 📊 Data Overview
 ### 🔍 Key Findings
@@ -91,9 +104,12 @@ Generate a {report_type} report using this exact structure:
 ### ⚠️ Risk Signals
 ### ✅ Strategic Recommendations
 ### 💡 Executive Takeaway
+
 Use real numbers. Be specific and concise.
+
 Statistics:
 {df.describe().round(1).to_string()}
+
 {f'Additional focus: {custom_focus}' if custom_focus else ''}"""
 
             response = client.chat.completions.create(
@@ -108,13 +124,81 @@ Statistics:
         st.subheader("📄 Generated Report")
         st.markdown(report)
         st.divider()
-        st.download_button(
-            label="⬇️ Download Report (.md)",
-            data=report,
-            file_name="business_report.md",
-            mime="text/markdown",
-            use_container_width=True
-        )
+
+        # ── Export ─────────────────────────────────────────
+        if export_format == "Markdown (.md)":
+            st.download_button(
+                label="⬇️ Download as Markdown",
+                data=report,
+                file_name="business_report.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+
+        elif export_format == "Word (.docx)":
+            try:
+                from docx import Document
+                from docx.shared import Pt
+                doc = Document()
+                doc.add_heading("Business Insight Report", 0)
+                for line in report.split("\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("## "):
+                        doc.add_heading(line[3:], level=1)
+                    elif line.startswith("### "):
+                        doc.add_heading(line[4:], level=2)
+                    elif line.startswith("- ") or line.startswith("* "):
+                        doc.add_paragraph(line[2:], style="List Bullet")
+                    else:
+                        doc.add_paragraph(line)
+                buf = io.BytesIO()
+                doc.save(buf)
+                buf.seek(0)
+                st.download_button(
+                    label="⬇️ Download as Word",
+                    data=buf,
+                    file_name="business_report.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
+            except ImportError:
+                st.error("Run: pip install python-docx")
+
+        elif export_format == "PDF (.pdf)":
+            try:
+                from fpdf import FPDF
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Helvetica", size=11)
+                pdf.set_margins(15, 15, 15)
+                for line in report.split("\n"):
+                    line = line.strip()
+                    if not line:
+                        pdf.ln(3)
+                        continue
+                    if line.startswith("## "):
+                        pdf.set_font("Helvetica", "B", 16)
+                        pdf.multi_cell(0, 10, line[3:])
+                        pdf.set_font("Helvetica", size=11)
+                    elif line.startswith("### "):
+                        pdf.set_font("Helvetica", "B", 13)
+                        pdf.multi_cell(0, 8, line[4:])
+                        pdf.set_font("Helvetica", size=11)
+                    else:
+                        clean = line.encode("latin-1", "replace").decode("latin-1")
+                        pdf.multi_cell(0, 7, clean)
+                buf = io.BytesIO(pdf.output())
+                st.download_button(
+                    label="⬇️ Download as PDF",
+                    data=buf,
+                    file_name="business_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except ImportError:
+                st.error("Run: pip install fpdf2")
 
 else:
-    st.info("👆 Upload one or more CSV files to get started.")
+    st.info("👆 Upload a CSV or Excel file to get started.")
