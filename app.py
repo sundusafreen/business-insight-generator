@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import pandas as pd
 import streamlit as st
 from groq import Groq
@@ -21,11 +22,8 @@ with st.sidebar:
     ])
     custom_focus = st.text_input("Custom Focus (optional)",
         placeholder="e.g. Focus on regional gaps")
-
     st.divider()
-
     export_format = st.radio("Download Format", ["Markdown (.md)", "Word (.docx)", "PDF (.pdf)"])
-
     st.divider()
     st.caption("Powered by Groq + Llama 3.3")
 
@@ -36,18 +34,17 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-def read_file(uploaded_file):
-    if uploaded_file.name.endswith(".csv"):
-        return pd.read_csv(uploaded_file)
-    else:
-        return pd.read_excel(uploaded_file)
+def read_file(f):
+    if f.name.endswith(".csv"):
+        return pd.read_csv(f)
+    return pd.read_excel(f)
+
+def clean_text(text):
+    return re.sub(r'[^\x00-\x7F]+', '', text).strip()
 
 if uploaded_files:
     if len(uploaded_files) > 1:
-        selected_name = st.selectbox(
-            "Select file to analyse",
-            [f.name for f in uploaded_files]
-        )
+        selected_name = st.selectbox("Select file to analyse", [f.name for f in uploaded_files])
         uploaded_file = next(f for f in uploaded_files if f.name == selected_name)
     else:
         uploaded_file = uploaded_files[0]
@@ -55,7 +52,6 @@ if uploaded_files:
     df = read_file(uploaded_file)
     st.success(f"✅ Loaded **{uploaded_file.name}** — {df.shape[0]} rows, {df.shape[1]} columns")
 
-    # ── Metrics ────────────────────────────────────────────
     col1, col2, col3 = st.columns(3)
     col1.metric("Rows", df.shape[0])
     col2.metric("Columns", df.shape[1])
@@ -98,12 +94,12 @@ if uploaded_files:
 Generate a {report_type} report using this exact structure:
 
 ## {report_type} Report
-### 📊 Data Overview
-### 🔍 Key Findings
-### 📈 Trend Analysis
-### ⚠️ Risk Signals
-### ✅ Strategic Recommendations
-### 💡 Executive Takeaway
+### Data Overview
+### Key Findings
+### Trend Analysis
+### Risk Signals
+### Strategic Recommendations
+### Executive Takeaway
 
 Use real numbers. Be specific and concise.
 
@@ -125,7 +121,7 @@ Statistics:
         st.markdown(report)
         st.divider()
 
-        # ── Export ─────────────────────────────────────────
+        # ── Markdown ───────────────────────────────────────
         if export_format == "Markdown (.md)":
             st.download_button(
                 label="⬇️ Download as Markdown",
@@ -135,10 +131,10 @@ Statistics:
                 use_container_width=True
             )
 
+        # ── Word ───────────────────────────────────────────
         elif export_format == "Word (.docx)":
             try:
                 from docx import Document
-                from docx.shared import Pt
                 doc = Document()
                 doc.add_heading("Business Insight Report", 0)
                 for line in report.split("\n"):
@@ -166,47 +162,42 @@ Statistics:
             except ImportError:
                 st.error("Run: pip install python-docx")
 
+        # ── PDF ────────────────────────────────────────────
         elif export_format == "PDF (.pdf)":
-    try:
-        import re
-        from fpdf import FPDF
+            try:
+                from fpdf import FPDF
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_margins(15, 15, 15)
 
-        def clean(text):
-            # Remove emojis and non-latin characters
-            return re.sub(r'[^\x00-\x7F]+', '', text).strip()
+                for line in report.split("\n"):
+                    line = line.strip()
+                    if not line:
+                        pdf.ln(3)
+                        continue
+                    if line.startswith("## "):
+                        pdf.set_font("Helvetica", "B", 16)
+                        pdf.multi_cell(0, 10, clean_text(line[3:]))
+                    elif line.startswith("### "):
+                        pdf.set_font("Helvetica", "B", 13)
+                        pdf.multi_cell(0, 8, clean_text(line[4:]))
+                    elif line.startswith("- ") or line.startswith("* "):
+                        pdf.set_font("Helvetica", size=11)
+                        pdf.multi_cell(0, 7, "- " + clean_text(line[2:]))
+                    else:
+                        pdf.set_font("Helvetica", size=11)
+                        pdf.multi_cell(0, 7, clean_text(line))
 
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_margins(15, 15, 15)
-
-        for line in report.split("\n"):
-            line = line.strip()
-            if not line:
-                pdf.ln(3)
-                continue
-            if line.startswith("## "):
-                pdf.set_font("Helvetica", "B", 16)
-                pdf.multi_cell(0, 10, clean(line[3:]))
-            elif line.startswith("### "):
-                pdf.set_font("Helvetica", "B", 13)
-                pdf.multi_cell(0, 8, clean(line[4:]))
-            elif line.startswith("- ") or line.startswith("* "):
-                pdf.set_font("Helvetica", size=11)
-                pdf.multi_cell(0, 7, "- " + clean(line[2:]))
-            else:
-                pdf.set_font("Helvetica", size=11)
-                pdf.multi_cell(0, 7, clean(line))
-
-        buf = io.BytesIO(pdf.output())
-        st.download_button(
-            label="⬇️ Download as PDF",
-            data=buf,
-            file_name="business_report.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-    except ImportError:
-        st.error("Run: pip install fpdf2")
+                buf = io.BytesIO(pdf.output())
+                st.download_button(
+                    label="⬇️ Download as PDF",
+                    data=buf,
+                    file_name="business_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except ImportError:
+                st.error("Run: pip install fpdf2")
 
 else:
     st.info("👆 Upload a CSV or Excel file to get started.")
