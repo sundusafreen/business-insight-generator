@@ -280,6 +280,7 @@ if df is not None:
                 st.caption("Green = strong positive · Red = strong negative correlation")
 
     # ── TAB 3: AI CHAT ────────────────────────────────────────────────────────
+    # ── TAB 3: AI CHAT ────────────────────────────────────────────────────────
     with tab3:
         st.markdown('<div class="section-header">Ask Your Data Anything</div>', unsafe_allow_html=True)
 
@@ -287,38 +288,52 @@ if df is not None:
         suggestions = ["What are the top trends?","Which segment performs best?",
                        "What risks should I know?","Give 3 actionable recommendations."]
         sc = st.columns(4)
-        for i,s in enumerate(suggestions):
+        for i, s in enumerate(suggestions):
             if sc[i].button(s, key=f"sug{i}", use_container_width=True):
-                st.session_state.messages.append({"role":"user","content":s})
+                st.session_state["pending_input"] = s
 
-        # Render history
-        for m in st.session_state.messages:
-            if m["role"] == "user":
-                st.markdown(f'<div class="chat-user"><div class="chat-label chat-label-user">You</div>{m["content"]}</div>',
-                            unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-assistant"><div class="chat-label chat-label-ai">◈ InsightIQ</div>{m["content"].replace(chr(10),"<br>")}</div>',
-                            unsafe_allow_html=True)
+        # Handle pending input from suggestion buttons OR chat input
+        user_input = st.chat_input("Ask about your data...")
+        if user_input:
+            st.session_state["pending_input"] = user_input
 
-        # Input
-        if inp := st.chat_input("Ask about your data..."):
-            st.session_state.messages.append({"role":"user","content":inp})
-            history = "\n".join([f"{m['role'].upper()}: {m['content']}"
-                                  for m in st.session_state.messages[-8:]])
+        # Process any pending input
+        if st.session_state.get("pending_input"):
+            inp = st.session_state.pop("pending_input")
+            st.session_state.messages.append({"role": "user", "content": inp})
+
+            history = "\n".join([
+                f"{m['role'].upper()}: {m['content']}"
+                for m in st.session_state.messages[-8:]
+            ])
+
             sys_p = f"""You are InsightIQ, an elite AI business analyst.
 Industry: {industry}. {INDUSTRY_PROMPTS[industry]}
-Be specific. Use numbers. Format with bullet points where helpful."""
+Be specific. Use numbers from the data. Format with bullet points where helpful.
+Always provide a complete, detailed response."""
+
             usr_p = f"Dataset:\n{get_data_context(df)}\n\nConversation:\n{history}\n\nQuestion: {inp}"
+
             with st.spinner("Analysing..."):
                 reply = call_ai(sys_p, usr_p)
-            st.session_state.messages.append({"role":"assistant","content":reply})
-            st.rerun()
+
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+
+        # Render chat history
+        for m in st.session_state.messages:
+            if m["role"] == "user":
+                st.markdown(
+                    f'<div class="chat-user"><div class="chat-label chat-label-user">You</div>{m["content"]}</div>',
+                    unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f'<div class="chat-assistant"><div class="chat-label chat-label-ai">◈ InsightIQ</div>{m["content"].replace(chr(10), "<br>")}</div>',
+                    unsafe_allow_html=True)
 
         if st.session_state.messages:
             if st.button("Clear Chat"):
                 st.session_state.messages = []
                 st.rerun()
-
     # ── TAB 4: REPORTS ────────────────────────────────────────────────────────
     with tab4:
         st.markdown('<div class="section-header">AI-Generated Report</div>', unsafe_allow_html=True)
