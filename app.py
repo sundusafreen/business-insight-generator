@@ -272,9 +272,11 @@ if df is not None:
 
             with v3:
                 corr = df[num_cols].corr().round(2)
+            try:
                 st.dataframe(
-                    corr.style.background_gradient(cmap="RdYlGn", axis=None).format("{:.2f}"),
-                    use_container_width=True)
+                    corr.style.background_gradient(cmap="RdYlGn", axis=None).format("{:.2f}"), use_container_width=True)
+            except Exception:
+                st.dataframe(corr, use_container_width=True)
                 st.caption("Green = strong positive · Red = strong negative correlation")
 
     # ── TAB 3: AI CHAT ────────────────────────────────────────────────────────
