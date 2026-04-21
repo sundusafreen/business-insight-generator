@@ -326,9 +326,19 @@ else:
             if sc[i].button(s,key=f"s{i}",use_container_width=True):
                 st.session_state["pending_input"]=s
 
-        user_input=st.chat_input("Ask anything about your data…")
-        if user_input: st.session_state["pending_input"]=user_input
-
+        inp_col, btn_col = st.columns([5, 1])
+        with inp_col:
+            typed = st.text_input(
+                "msg",
+                placeholder="Ask anything… e.g. 'What are the top revenue drivers?'",
+                label_visibility="collapsed",
+                key="chat_text")
+        with btn_col:
+            send = st.button("Send →", use_container_width=True, key="chat_send")
+        
+        if (send and typed) or typed and typed != st.session_state.get("last_sent",""):
+            st.session_state["pending_input"] = typed
+            st.session_state["last_sent"] = typed
         if st.session_state.get("pending_input"):
             inp=st.session_state.pop("pending_input")
             st.session_state.messages.append({"role":"user","content":inp})
