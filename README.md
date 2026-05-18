@@ -4,7 +4,7 @@
 > visualisations, and an AI analyst you can ask questions 
 > in plain English. Export a full business report in minutes.
 
-**[Try it live →]([YOUR-STREAMLIT-LINK](https://business-insight-generator-iznknezr5a6nf55athdudq.streamlit.app/))**
+**[Try it live →]((https://business-insight-generator-iznknezr5a6nf55athdudq.streamlit.app/))**
 &nbsp;&nbsp;&nbsp;&nbsp;*(No installation required — runs in your browser)*
 ---
 
