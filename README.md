@@ -4,7 +4,7 @@
 > visualisations, and an AI analyst you can ask questions 
 > in plain English. Export a full business report in minutes.
 
-**[Try it live →](https://business-insight-generator-iznknezr5a6nf55athdudq.streamlit.app/)**
+**[Try it live](https://business-insight-generator-iznknezr5a6nf55athdudq.streamlit.app/)**
 &nbsp;&nbsp;&nbsp;&nbsp;*(No installation required — runs in your browser)*
 ---
 
@@ -95,3 +95,36 @@ pip install streamlit groq pandas python-dotenv reportlab python-docx openpyxl
 **3. Add your Groq API key**
 
 Create a `.env` file:
+GROQ_API_KEY=your_key_here
+
+Get a free key at [console.groq.com](https://console.groq.com)
+
+**4. Run**
+```bash
+streamlit run app.py
+```
+
+---
+
+## Project Context
+
+Built during my MSc in Business Analytics at Trinity College 
+Dublin. The core design question was: *how do you make 
+commercial data analysis accessible to the people who 
+actually make the decisions — not just the people who 
+write the queries?*
+
+The industry mode system came from noticing that a retail 
+analyst and a SaaS analyst care about completely different 
+metrics. Rather than one generic AI prompt, InsightIQ 
+switches the analytical lens based on your business context.
+
+---
+
+## Author
+
+**Sundus Afreen**  
+MSc Business Analytics — Trinity College Dublin  
+AI & Analytics Consulting — EY Ireland  
+[LinkedIn](https://www.linkedin.com/in/sundusafreen21/) · 
+[Portfolio](https://sa-personall-portfolio.netlify.app/)
