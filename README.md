@@ -45,11 +45,11 @@ Upload a CSV or Excel file and the app gives you:
 <img width="1465" height="837" alt="Screenshot 2026-05-18 at 11 47 24 PM" src="https://github.com/user-attachments/assets/0115d83e-44e5-4224-806a-85813a2515c2" />
 
 ### AI Analyst in Action
-[ADD SCREENSHOT — AI Analyst tab with a real question 
-and answer, using the sample sales dataset]
+<img width="1465" height="837" alt="Screenshot 2026-05-18 at 11 49 21 PM" src="https://github.com/user-attachments/assets/0425aa51-6b0b-4d9d-aba8-f77d30096a2a" />
+
 
 ### Report Export
-[ADD SCREENSHOT — Generated report preview]
+<img width="1465" height="837" alt="Screenshot 2026-05-18 at 11 50 03 PM" src="https://github.com/user-attachments/assets/32ff9b71-1bb6-44d7-8cfa-367608927574" />
 
 ---
 
