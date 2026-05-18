@@ -99,6 +99,8 @@ GROQ_API_KEY=your_key_here
 
 Get a free key at [console.groq.com](https://console.groq.com)
 
+**Disclaimer:** "The live demo uses Groq's free API tier — if you hit a rate limit, try again in a minute or run locally with your own key." 
+
 **4. Run**
 ```bash
 streamlit run app.py
