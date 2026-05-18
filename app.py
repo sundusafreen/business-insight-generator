@@ -586,31 +586,220 @@ def render_report_with_charts(df, report_text):
             render_section_chart(df, title)
 
 # ── PDF EXPORT ────────────────────────────────────────────────────────────────
-def generate_pdf(report):
+def generate_pdf(report_text, title="Business Analysis Report", company="InsightIQ"):
+    import datetime, re
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+        HRFlowable, Table, TableStyle, KeepTogether)
+    from reportlab.pdfgen import canvas as rl_canvas
+
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf,pagesize=A4,rightMargin=20*mm,leftMargin=20*mm,
-                            topMargin=20*mm,bottomMargin=20*mm)
-    S=getSampleStyleSheet()
-    st_={
-        't': ParagraphStyle('T',parent=S['Title'],  fontSize=20,spaceAfter=12),
-        'h1':ParagraphStyle('H1',parent=S['Heading1'],fontSize=15,spaceAfter=8,spaceBefore=14),
-        'h2':ParagraphStyle('H2',parent=S['Heading2'],fontSize=12,spaceAfter=6,spaceBefore=10),
-        'b': ParagraphStyle('B', parent=S['Normal'],  fontSize=10,spaceAfter=4,leading=14),
-        'bl':ParagraphStyle('BL',parent=S['Normal'],  fontSize=10,leftIndent=14,spaceAfter=3,leading=14),
+    W, H = A4
+
+    C_DARK   = colors.HexColor('#0B1120')
+    C_ACCENT = colors.HexColor('#2563EB')
+    C_ACCENT2= colors.HexColor('#4F46E5')
+    C_LIGHT  = colors.HexColor('#F8FAFC')
+    C_MUTED  = colors.HexColor('#64748B')
+    C_BORDER = colors.HexColor('#E2E8F0')
+    C_TEXT   = colors.HexColor('#1E293B')
+    C_TEXT2  = colors.HexColor('#475569')
+
+    SEC_COLORS = {
+        'data overview':             colors.HexColor('#2563EB'),
+        'key findings':              colors.HexColor('#7C3AED'),
+        'trend analysis':            colors.HexColor('#0891B2'),
+        'risk signals':              colors.HexColor('#DC2626'),
+        'strategic recommendations': colors.HexColor('#059669'),
+        'executive takeaway':        colors.HexColor('#D97706'),
+        'recommendations':           colors.HexColor('#059669'),
     }
-    story=[Paragraph("InsightIQ — Business Analysis Report",st_['t']),Spacer(1,5*mm)]
-    for line in report.split("\n"):
-        line=clean_text(line.strip())
-        if not line:                      story.append(Spacer(1,3*mm))
-        elif line.startswith("## "):      story.append(Paragraph(line[3:],st_['h1']))
-        elif line.startswith("### "):     story.append(Paragraph(line[4:],st_['h2']))
-        elif line.startswith(("- ","* ")):story.append(Paragraph("• "+line[2:],st_['bl']))
-        else:                             story.append(Paragraph(line,st_['b']))
-    doc.build(story); buf.seek(0)
+    SEC_NUMS = {
+        'data overview':'01','key findings':'02','trend analysis':'03',
+        'risk signals':'04','strategic recommendations':'05',
+        'executive takeaway':'06','recommendations':'05',
+    }
+
+    def _clean(t):
+        t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
+        t = re.sub(r'[^\x00-\x7F]+', '', t)
+        return t.strip()
+
+    class HFC(rl_canvas.Canvas):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self._saved = []
+        def showPage(self):
+            self._saved.append(dict(self.__dict__))
+            self._startPage()
+        def save(self):
+            n = len(self._saved)
+            for s in self._saved:
+                self.__dict__.update(s)
+                self._draw(n)
+                super().showPage()
+            super().save()
+        def _draw(self, total):
+            self.saveState()
+            pg = self._pageNumber
+            if pg == 1:
+                self.setFillColor(C_DARK)
+                self.rect(0, H-90*mm, W, 90*mm, fill=1, stroke=0)
+                self.setFillColor(C_ACCENT)
+                self.rect(0, H-93*mm, W, 4*mm, fill=1, stroke=0)
+                self.setFillColor(colors.white)
+                self.setFont('Helvetica-Bold', 10)
+                self.drawString(20*mm, H-18*mm, company.upper())
+                self.setFont('Helvetica-Bold', 26)
+                self.drawString(20*mm, H-44*mm, title)
+                self.setFillColor(colors.HexColor('#94A3B8'))
+                self.setFont('Helvetica', 9)
+                self.drawString(20*mm, H-58*mm,
+                    datetime.datetime.now().strftime("%B %d, %Y") + "  ·  Confidential")
+                self.setFillColor(C_ACCENT2)
+                self.setFillAlpha(0.25)
+                self.circle(W-25*mm, H-45*mm, 22*mm, fill=1, stroke=0)
+                self.setFillAlpha(1)
+            else:
+                self.setFillColor(C_DARK)
+                self.rect(0, H-14*mm, W, 14*mm, fill=1, stroke=0)
+                self.setFillColor(C_ACCENT)
+                self.rect(0, H-15*mm, W, 1*mm, fill=1, stroke=0)
+                self.setFillColor(colors.white)
+                self.setFont('Helvetica-Bold', 8)
+                self.drawString(20*mm, H-9*mm, company)
+                self.setFont('Helvetica', 8)
+                self.setFillColor(colors.HexColor('#94A3B8'))
+                self.drawRightString(W-20*mm, H-9*mm, title)
+            # Footer
+            self.setFillColor(C_LIGHT)
+            self.rect(0, 0, W, 12*mm, fill=1, stroke=0)
+            self.setFillColor(C_BORDER)
+            self.rect(0, 12*mm, W, 0.3*mm, fill=1, stroke=0)
+            self.setFillColor(C_MUTED)
+            self.setFont('Helvetica', 8)
+            self.drawString(20*mm, 4*mm,
+                f"© {datetime.datetime.now().year} {company}  ·  Confidential & Proprietary")
+            self.drawRightString(W-20*mm, 4*mm, f"Page {pg} of {total}")
+            self.setFillColor(C_ACCENT)
+            self.circle(W/2, 5*mm, 1*mm, fill=1, stroke=0)
+            self.restoreState()
+
+    s_num  = ParagraphStyle('sn', fontName='Helvetica-Bold', fontSize=8,
+                             textColor=colors.white, alignment=TA_CENTER)
+    s_htit = ParagraphStyle('ht', fontName='Helvetica-Bold', fontSize=14,
+                             textColor=C_TEXT, spaceBefore=4, spaceAfter=2, leading=18)
+    s_body = ParagraphStyle('b',  fontName='Helvetica', fontSize=10,
+                             textColor=C_TEXT2, leading=16, spaceAfter=4)
+    s_num2 = ParagraphStyle('n2', fontName='Helvetica-Bold', fontSize=10,
+                             textColor=C_TEXT, leading=16, leftIndent=16, spaceAfter=2)
+    s_sub  = ParagraphStyle('sb', fontName='Helvetica', fontSize=10,
+                             textColor=C_TEXT2, leading=15, leftIndent=16, spaceAfter=3)
+
+    def _sec_header(title, color):
+        key = title.lower().strip()
+        num = SEC_NUMS.get(key, '◈')
+        badge = Table([[Paragraph(num, s_num)]], colWidths=[7*mm], rowHeights=[7*mm])
+        badge.setStyle(TableStyle([
+            ('BACKGROUND',(0,0),(-1,-1),color),
+            ('ALIGN',(0,0),(-1,-1),'CENTER'),
+            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('TOPPADDING',(0,0),(-1,-1),0),
+            ('BOTTOMPADDING',(0,0),(-1,-1),0),
+        ]))
+        hdr = Table([[badge, Paragraph(title, s_htit)]],
+                    colWidths=[10*mm, W-40*mm-10*mm])
+        hdr.setStyle(TableStyle([
+            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('LEFTPADDING',(0,0),(0,0),0),
+            ('LEFTPADDING',(1,0),(1,0),8),
+            ('TOPPADDING',(0,0),(-1,-1),0),
+            ('BOTTOMPADDING',(0,0),(-1,-1),0),
+        ]))
+        div = HRFlowable(width="100%", thickness=1, color=color,
+                         spaceAfter=8, spaceBefore=6)
+        return [hdr, div]
+
+    def _bullet(text, color):
+        dot = Table([['']], colWidths=[2*mm], rowHeights=[2*mm])
+        dot.setStyle(TableStyle([
+            ('BACKGROUND',(0,0),(-1,-1),color),
+            ('TOPPADDING',(0,0),(-1,-1),0),
+            ('BOTTOMPADDING',(0,0),(-1,-1),0),
+        ]))
+        row = Table([[dot, Paragraph(_clean(text), s_body)]],
+                    colWidths=[5*mm, W-40*mm-5*mm])
+        row.setStyle(TableStyle([
+            ('VALIGN',(0,0),(-1,-1),'TOP'),
+            ('LEFTPADDING',(0,0),(-1,-1),0),
+            ('TOPPADDING',(0,0),(-1,-1),1),
+            ('BOTTOMPADDING',(0,0),(-1,-1),1),
+        ]))
+        return row
+
+    def _flush(sec_title, body_lines, story):
+        if not sec_title: return
+        key   = sec_title.lower().strip()
+        color = SEC_COLORS.get(key, C_ACCENT)
+        block = _sec_header(sec_title, color)
+        i = 0
+        while i < len(body_lines):
+            line = body_lines[i].strip()
+            if not line: i+=1; continue
+            nm = re.match(r'^(\d+)\.\s+(.+)', line)
+            if nm:
+                block.append(Paragraph(
+                    f"<b>{nm.group(1)}.</b> {_clean(nm.group(2))}", s_num2))
+                i += 1
+                while i < len(body_lines):
+                    sub = body_lines[i].strip()
+                    if sub.startswith('- ') or sub.startswith('* '):
+                        block.append(Paragraph(
+                            f"<font color='#94A3B8'>—</font>  {_clean(sub[2:])}", s_sub))
+                        i += 1
+                    else: break
+                continue
+            if line.startswith('- ') or line.startswith('* '):
+                block.append(_bullet(line[2:], color))
+                i += 1; continue
+            block.append(Paragraph(_clean(line), s_body))
+            i += 1
+        block.append(Spacer(1, 4*mm))
+        card = Table([[ block ]], colWidths=[W-40*mm])
+        card.setStyle(TableStyle([
+            ('BOX',(0,0),(-1,-1),0.5,C_BORDER),
+            ('LEFTPADDING',(0,0),(-1,-1),12),
+            ('RIGHTPADDING',(0,0),(-1,-1),12),
+            ('TOPPADDING',(0,0),(-1,-1),14),
+            ('BOTTOMPADDING',(0,0),(-1,-1),4),
+            ('ROWBACKGROUNDS',(0,0),(-1,-1),[C_LIGHT]),
+        ]))
+        story.append(KeepTogether([card, Spacer(1, 4*mm)]))
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+        rightMargin=20*mm, leftMargin=20*mm,
+        topMargin=100*mm, bottomMargin=20*mm,
+        title=title, author=company)
+
+    story  = [Spacer(1, 4*mm)]
+    c_sec  = None
+    c_body = []
+    for line in report_text.split('\n'):
+        ls = line.strip()
+        if ls.startswith('## '): continue
+        elif ls.startswith('### '):
+            _flush(c_sec, c_body, story)
+            c_sec = ls[4:].strip(); c_body = []
+        else:
+            if c_sec is not None: c_body.append(ls)
+    _flush(c_sec, c_body, story)
+
+    doc.build(story, canvasmaker=HFC)
+    buf.seek(0)
     return buf
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1116,7 +1305,7 @@ Each: **Bold Title**, Problem, Action, Expected Impact, Timeline."""
             elif export_fmt=="PDF (.pdf)":
                 try:
                     st.download_button("⬇️ Download as PDF",
-                        data=generate_pdf(report),
+                        data=generate_pdf(report, title=report_type, company="InsightIQ"),
                         file_name="insightiq_report.pdf",
                         mime="application/pdf",
                         use_container_width=True)
