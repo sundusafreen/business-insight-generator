@@ -2,7 +2,7 @@ streamlit
 pandas
 groq
 openai
-google-genai
+google-generativeai
 python-dotenv
 python-docx
 reportlab

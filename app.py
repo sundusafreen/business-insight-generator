@@ -357,13 +357,13 @@ def call_ai(system: str, user: str) -> str:
 
         # ── GEMINI ──
         elif provider == "gemini":
-            from google import genai
-            client = genai.Client(api_key=key)
-            prompt = f"System: {system}\n\nUser: {user}"
-            r = client.models.generate_content(
-                model=PROVIDERS["gemini"]["model"],
-                contents=prompt
+            import google.generativeai as genai
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                system_instruction=system
             )
+            r = model.generate_content(user)
             return r.text
 
     except Exception as e:
@@ -387,9 +387,9 @@ def verify_key(key: str, provider: str) -> tuple[bool, str]:
                 model=PROVIDERS["openai"]["model"], max_tokens=5,
                 messages=[{"role":"user","content":"hi"}])
         elif provider == "gemini":
-            from google import genai
-            genai.Client(api_key=key).models.generate_content(
-                model=PROVIDERS["gemini"]["model"], contents="hi")
+            import google.generativeai as genai
+            genai.configure(api_key=key)
+            genai.GenerativeModel("gemini-1.5-flash").generate_content("hi")
         return True, "✓ Key verified successfully"
     except Exception as e:
         return False, str(e)
