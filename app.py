@@ -360,7 +360,7 @@ def call_ai(system: str, user: str) -> str:
             import google.generativeai as genai
             genai.configure(api_key=key)
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-2.0-flash",
                 system_instruction=system
             )
             r = model.generate_content(user)
@@ -389,7 +389,7 @@ def verify_key(key: str, provider: str) -> tuple[bool, str]:
         elif provider == "gemini":
             import google.generativeai as genai
             genai.configure(api_key=key)
-            genai.GenerativeModel("gemini-1.5-flash").generate_content("hi")
+            genai.GenerativeModel("gemini-2.0-flash").generate_content("hi")
         return True, "✓ Key verified successfully"
     except Exception as e:
         return False, str(e)
