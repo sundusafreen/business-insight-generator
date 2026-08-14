@@ -1,7 +1,10 @@
 streamlit
 pandas
 groq
+openai
+google-genai
 python-dotenv
 python-docx
 reportlab
 openpyxl
+matplotlib
