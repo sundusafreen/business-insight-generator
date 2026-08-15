@@ -243,8 +243,8 @@ PROVIDERS = {
                "prefix":"sk-",  "url":"https://platform.openai.com/api-keys",
                "hint":"Starts with sk-   ·  Pay-per-use"},
     "gemini": {"name":"Gemini", "icon":"✨", "model":"gemini-3.1-flash-lite",
-               "prefix":"AIza", "url":"https://aistudio.google.com/app/apikey",
-               "hint":"Starts with AIza  ·  Free tier available"},
+               "prefix":"AQ.", "url":"https://aistudio.google.com/app/apikey",
+               "hint":"Starts with AQ.  ·  Free tier available"},
 }
 
 SECTION_ICONS = {
@@ -280,7 +280,7 @@ def detect_provider(key: str):
     k = key.strip()
     if k.startswith("gsk_"):  return "groq"
     if k.startswith("sk-"):   return "openai"
-    if k.startswith("AIza"):  return "gemini"
+    if k.startswith("AQ."):  return "gemini"
     return None
 
 # ─────────────────────────────────────────────────────────────────────────────
